@@ -52,15 +52,12 @@ Step 2. ## 使用方法
  防止support包冲突
  
 configurations.all {
-
     resolutionStrategy.eachDependency { DependencyResolveDetails details ->
         def requested = details.requested
         if (requested.group == 'com.android.support') {
-	
-            if (!requested.name.startsWith("multidex")) {
+            if (!requested.name.startsWith("multidex")) {
                 details.useVersion '26.0.0-alpha1'//此处的版本号可以替换
             }
-	    
         }
     }
 }
