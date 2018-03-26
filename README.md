@@ -14,6 +14,7 @@ Step 1. 然后在 build.gradle(Module:app) 的 dependencies 添加:
 
 
 Step 2. ## 使用方法
+
  
  1 连接打印机              PrintUtils.getInstance().initPrintConnect(this)
  
@@ -48,5 +49,15 @@ Step 2. ## 使用方法
  16 1:零售版1代机器，2：加油站版，3：零售版2代机器 SOFT_TYPE
  
  
- 
+ 防止support包冲突
+configurations.all {
+    resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+        def requested = details.requested
+        if (requested.group == 'com.android.support') {
+            if (!requested.name.startsWith("multidex")) {
+                details.useVersion '26.0.0-alpha1'//此处的版本号可以替换
+            }
+        }
+    }
+}
  
