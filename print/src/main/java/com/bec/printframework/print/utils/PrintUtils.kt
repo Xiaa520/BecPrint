@@ -21,9 +21,7 @@ import com.gprinter.service.GpPrintService
 import net.posprinter.posprinterface.IMyBinder
 import net.posprinter.posprinterface.ProcessData
 import net.posprinter.posprinterface.UiExecute
-import net.posprinter.utils.BitmapToByteData
-import net.posprinter.utils.DataForSendToPrinterPos80
-import net.posprinter.utils.PosPrinterDev
+import net.posprinter.utils.*
 import org.jetbrains.anko.toast
 import java.io.BufferedReader
 import java.io.File
@@ -120,7 +118,7 @@ class PrintUtils {
             if (mFont == Font.BIG) {
                 //大文字
                 listXP.add(byteArrayOf(0x1D, 0x21, 0x11))
-                printAndFeed(3)
+                listXP.add(DataForSendToPrinterPos58.printAndFeedLine())
             } else if (mFont == Font.LITTLE) {
                 //小文字
                 listXP.add(byteArrayOf(0x1D, 0x21, 0x00))
@@ -155,7 +153,7 @@ class PrintUtils {
      *
      *  Orientation 打印方向
      */
-    fun addText(leftText: String, centreText: String, rightText: String): PrintUtils {
+    fun addText(leftText: String, centreText: String, rightText: String,isAndLineFeed:Boolean): PrintUtils {
         if (SOFT_TYPE == 1) { //一代机 gp
             setOrientation(Orientation.LEFT)
             esc.addText(leftText)
@@ -164,7 +162,7 @@ class PrintUtils {
             esc.addText(centreText)
             esc.addSetAbsolutePrintPosition(18.toShort())
             esc.addText(rightText)
-            esc.addPrintAndLineFeed()
+            if(isAndLineFeed)esc.addPrintAndLineFeed()
         } else if (SOFT_TYPE == 3) { //二代机 xp
             setOrientation(Orientation.LEFT)
             listXP.add(StringUtils.strTobytes(leftText))
@@ -173,7 +171,7 @@ class PrintUtils {
             listXP.add(StringUtils.strTobytes(centreText))
             listXP.add(DataForSendToPrinterPos80.setAbsolutePrintPosition(9, 0))
             listXP.add(StringUtils.strTobytes(rightText))
-            listXP.add(DataForSendToPrinterPos80.printAndFeedLine())
+            if(isAndLineFeed)listXP.add(DataForSendToPrinterPos80.printAndFeedLine())
         }
         return this
     }
@@ -285,7 +283,7 @@ class PrintUtils {
     fun addCutPaper(): PrintUtils {
         if (SOFT_TYPE == 1) { //一代机 gp
             try {
-                esc.addPrintAndFeedLines(8.toByte())
+                esc.addPrintAndFeedLines(4.toByte())
                 esc.addCutPaper()
                 mGpService?.sendEscCommand(0, Base64.encodeToString(GpUtils.ByteTo_byte(esc.command), Base64.DEFAULT))
             } catch (e: RemoteException) {
