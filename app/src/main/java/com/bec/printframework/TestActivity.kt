@@ -13,37 +13,59 @@ class TestActivity : AppCompatActivity() {
         PrintUtils.getInstance().initPrintConnect(this)
         text.setOnClickListener {
             PrintUtils.getInstance().initializePrinter()
-                    .setFont(PrintUtils.Companion.Font.BIG)
-                    .addText("南京亚青体育产业发展有限公司",PrintUtils.Companion.Orientation.CENTRE)
-                    .setFont(PrintUtils.Companion.Font.LITTLE)
-                    .addText("时间：2018-03-26 16:17:20",PrintUtils.Companion.Orientation.LEFT)
-                    .addCode("2018032616172600175295",PrintUtils.Companion.Orientation.CENTRE)
-                    .addText("收银员：朱国治",PrintUtils.Companion.Orientation.LEFT)
-                    .addText("商品名称","数量","金额",false)
-                    .addText("",PrintUtils.Companion.Orientation.LEFT)
-                    .addText("----------------------------------------------",PrintUtils.Companion.Orientation.LEFT)
-                    .addText("得力0018回形针","1","2.00",true)
-                    .addText("牛奶","2","36.5",false)
+                    .setFont(PrintUtils.Font.BIG)
+                    .addText("南京亚青体育产业发展有限公司", PrintUtils.Orientation.CENTRE)
+                    .setFont(PrintUtils.Font.LITTLE)
+                    .addText("时间：2018-03-26 16:17:20", PrintUtils.Orientation.LEFT)
+                    .addCode("2018032616172600175295", PrintUtils.Orientation.CENTRE)
+                    .addText("收银员：朱国治", PrintUtils.Orientation.LEFT)
+                    .addText("商品名称", "数量", "金额", false)
+                    .addText("", PrintUtils.Orientation.LEFT)
+                    .addText("----------------------------------------------", PrintUtils.Orientation.LEFT)
+                    .addText("得力0018回形针", "1", "2.00", true)
+                    .addText("牛奶", "2", "36.5", false)
                     .printAndFeed(1)
-                    .addText("----------------------------------------------",PrintUtils.Companion.Orientation.LEFT)
-                    .addText("原价合计:2.00",PrintUtils.Companion.Orientation.LEFT)
-                    .addText("原价合计:2.00",PrintUtils.Companion.Orientation.LEFT)
-                    .addText("原价合计:2.00",PrintUtils.Companion.Orientation.LEFT)
-                    .addText("原价合计:2.00",PrintUtils.Companion.Orientation.LEFT)
-                    .addText("原价合计:2.00",PrintUtils.Companion.Orientation.LEFT)
-                    .addText("原价合计:2.00",PrintUtils.Companion.Orientation.LEFT)
-                    .addText("原价合计:2.00",PrintUtils.Companion.Orientation.LEFT)
-                    .addText("原价合计:2.00",PrintUtils.Companion.Orientation.LEFT)
-                    .addText("原价合计:2.00",PrintUtils.Companion.Orientation.LEFT)
-                    .addText("原价合计:2.00",PrintUtils.Companion.Orientation.LEFT)
-                    .addText("原价合计:2.00",PrintUtils.Companion.Orientation.LEFT)
-                    .addText("----------------------------------------------",PrintUtils.Companion.Orientation.LEFT)
+                    .addText("----------------------------------------------", PrintUtils.Orientation.LEFT)
+                    .addText("原价合计:2.00", PrintUtils.Orientation.LEFT)
+                    .addText("原价合计:2.00", PrintUtils.Orientation.LEFT)
+                    .addText("原价合计:2.00", PrintUtils.Orientation.LEFT)
+                    .addText("原价合计:2.00", PrintUtils.Orientation.LEFT)
+                    .addText("原价合计:2.00", PrintUtils.Orientation.LEFT)
+                    .addText("原价合计:2.00", PrintUtils.Orientation.LEFT)
+                    .addText("原价合计:2.00", PrintUtils.Orientation.LEFT)
+                    .addText("原价合计:2.00", PrintUtils.Orientation.LEFT)
+                    .addText("原价合计:2.00", PrintUtils.Orientation.LEFT)
+                    .addText("原价合计:2.00", PrintUtils.Orientation.LEFT)
+                    .addText("原价合计:2.00", PrintUtils.Orientation.LEFT)
+                    .addText("----------------------------------------------", PrintUtils.Orientation.LEFT)
                     .printAndFeed(1)
-                    .addText("欢迎光临！\n\n技术支持：江苏银企通支付技术有限公司\n400-86-96019\n",PrintUtils.Companion.Orientation.CENTRE)
+                    .addText("欢迎光临！\n\n技术支持：江苏银企通支付技术有限公司\n400-86-96019\n", PrintUtils.Orientation.CENTRE)
                     .addCutPaper()
         }
 
+        textView.setOnClickListener {
+            PrintUtils.getInstance().exitPrint()
+        }
+
+//        PrintUtils.getInstance().getPrintxceptionState(object : IPrintExceptionState {
+//            override fun getPrintExceptionState(state: PrintUtils.ExceptionState) {
+//                when (state) {
+//                    PrintUtils.ExceptionState.NO_CONNECTION -> {
+//                    }
+//                    PrintUtils.ExceptionState.NO_CONNECTION -> {
+//
+//                    }
+//                    PrintUtils.ExceptionState.NO_CONNECTION -> {
+//
+//                    }
+//                }
+//            }
+//        })
+
+
     }
+
+
 
     override fun onDestroy() {
         super.onDestroy()

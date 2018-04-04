@@ -1,22 +1,26 @@
 package com.bec.printframework.print.utils
 
-import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import android.content.ServiceConnection
+import android.annotation.SuppressLint
+import android.app.AlertDialog
+import android.app.ProgressDialog
+import android.content.*
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
-import android.os.Environment
-import android.os.IBinder
-import android.os.RemoteException
+import android.os.*
+import android.text.TextUtils
 import android.util.Base64
+import android.util.Log
+import android.widget.Toast
 import com.bec.printframework.print.utils.StringUtils.encodeAsBitmap
 import com.bec.printframework.print.utils.inter.IPrintObject
 import com.bec.printframework.print.utils.service.BecPosPrinterService
+import com.bec.printframework.print.utils.view.CustomProgress
 import com.gprinter.aidl.GpService
 import com.gprinter.command.EscCommand
+import com.gprinter.command.GpCom
 import com.gprinter.command.GpUtils
 import com.gprinter.command.LabelCommand
+import com.gprinter.io.GpDevice
 import com.gprinter.service.GpPrintService
 import net.posprinter.posprinterface.IMyBinder
 import net.posprinter.posprinterface.ProcessData
@@ -35,19 +39,41 @@ import java.util.*
 
 class PrintUtils {
     var listXP = ArrayList<ByteArray>()
-    lateinit var esc: EscCommand
+    var ipAddress = ""
+    var esc: EscCommand? = null
     //获取app对象
     var context: Context? = null
     var mGpService: GpService? = null
     //Xp打印机服务
     var binder: IMyBinder? = null
 
+
+    //重置时间
+    var resetTime = 20000
+
+    var connectFailTime = 0L
+
+    //广播是否注册
+    var mReceiverTag = false
+
+    /**
+     *  NO_CONNECTION 未连接  DISCONNECT 断开连接 PRINT_FAIL 打印失败
+     */
+    enum class ExceptionState {
+        NO_CONNECTION,
+        DISCONNECT,
+        PRINT_FAIL
+    }
+
+
     /**
      ** 初始化并连接打印机
      */
     fun initPrintConnect(context: Context): PrintUtils {
+
         this.context = context
         MACHINE_NUMBER = loadMachineNumber().toString()
+        if (connectFailTime == 0L) connectFailTime = System.currentTimeMillis()
 
         if (MACHINE_NUMBER != null && MACHINE_NUMBER.length > 10) {
             val type = MACHINE_NUMBER.substring(1, 5)
@@ -55,14 +81,15 @@ class PrintUtils {
                 "1710" -> {
                     //1710一代机
                     SOFT_TYPE = 1
-                    IS_ACTIVITE=true
+                    IS_ACTIVITE = true
                     conn = PrinterServiceConnection()
                     val intentG = Intent(context, GpPrintService::class.java)
                     context.bindService(intentG, conn, Context.BIND_AUTO_CREATE)
+                    if (!mReceiverTag) registerBroadcast(context)
                 }
                 "1720" -> {
                     //1720二代机
-                    IS_ACTIVITE=true
+                    IS_ACTIVITE = true
                     SOFT_TYPE = 3
                     connXPrinter = XPrinterServiceConnection()
                     val intentX = Intent(context, BecPosPrinterService::class.java)
@@ -70,13 +97,13 @@ class PrintUtils {
                 }
                 else -> {
                     SOFT_TYPE = 2
-                    IS_ACTIVITE=false
+                    IS_ACTIVITE = false
                 }
 
             }
 
-        }else{
-            IS_ACTIVITE=false
+        } else {
+            IS_ACTIVITE = false
         }
 
         return this
@@ -87,9 +114,11 @@ class PrintUtils {
      **  先初始化打印机，清除缓存
      */
     fun initializePrinter(): PrintUtils {
+        CustomProgress.show(context!!, "打印中...", false, null)
+        connectFailTime = System.currentTimeMillis()
         if (SOFT_TYPE == 1) { //一代机 gp
             esc = EscCommand()
-            esc.addInitializePrinter()
+            esc?.addInitializePrinter()
         } else if (SOFT_TYPE == 3) { ////二代机 xp
             listXP.clear()
             listXP.add(DataForSendToPrinterPos80.initializePrinter())
@@ -105,11 +134,11 @@ class PrintUtils {
         if (SOFT_TYPE == 1) { //一代机 gp
             if (mFont == Font.BIG) {
                 //大文字
-                esc.addSelectPrintModes(EscCommand.FONT.FONTA, EscCommand.ENABLE.OFF, EscCommand.ENABLE.ON, EscCommand.ENABLE.ON, EscCommand.ENABLE.OFF)// 设置为倍高倍宽
+                esc?.addSelectPrintModes(EscCommand.FONT.FONTA, EscCommand.ENABLE.OFF, EscCommand.ENABLE.ON, EscCommand.ENABLE.ON, EscCommand.ENABLE.OFF)// 设置为倍高倍宽
                 printAndFeed(3)
             } else if (mFont == Font.LITTLE) {
                 //小文字
-                esc.addSelectPrintModes(EscCommand.FONT.FONTA, EscCommand.ENABLE.OFF, EscCommand.ENABLE.OFF, EscCommand.ENABLE.OFF, EscCommand.ENABLE.OFF)// 取消倍高倍宽
+                esc?.addSelectPrintModes(EscCommand.FONT.FONTA, EscCommand.ENABLE.OFF, EscCommand.ENABLE.OFF, EscCommand.ENABLE.OFF, EscCommand.ENABLE.OFF)// 取消倍高倍宽
                 printAndFeed(1)
             }
 
@@ -137,8 +166,8 @@ class PrintUtils {
     fun addText(text: String, mOrientation: Orientation): PrintUtils {
         if (SOFT_TYPE == 1) { //一代机 gp
             setOrientation(mOrientation)
-            esc.addText(text)
-            esc.addPrintAndLineFeed()
+            esc?.addText(text)
+            esc?.addPrintAndLineFeed()
         } else if (SOFT_TYPE == 3) { //二代机 xp
             setOrientation(mOrientation)
             listXP.add(StringUtils.strTobytes(text))
@@ -153,16 +182,16 @@ class PrintUtils {
      *
      *  Orientation 打印方向
      */
-    fun addText(leftText: String, centreText: String, rightText: String,isAndLineFeed:Boolean): PrintUtils {
+    fun addText(leftText: String, centreText: String, rightText: String, isAndLineFeed: Boolean): PrintUtils {
         if (SOFT_TYPE == 1) { //一代机 gp
             setOrientation(Orientation.LEFT)
-            esc.addText(leftText)
-            esc.addSetHorAndVerMotionUnits(7.toByte(), 0.toByte())
-            esc.addSetAbsolutePrintPosition(10.toShort())
-            esc.addText(centreText)
-            esc.addSetAbsolutePrintPosition(18.toShort())
-            esc.addText(rightText)
-            if(isAndLineFeed)esc.addPrintAndLineFeed()
+            esc?.addText(leftText)
+            esc?.addSetHorAndVerMotionUnits(7.toByte(), 0.toByte())
+            esc?.addSetAbsolutePrintPosition(10.toShort())
+            esc?.addText(centreText)
+            esc?.addSetAbsolutePrintPosition(18.toShort())
+            esc?.addText(rightText)
+            if (isAndLineFeed) esc?.addPrintAndLineFeed()
         } else if (SOFT_TYPE == 3) { //二代机 xp
             setOrientation(Orientation.LEFT)
             listXP.add(StringUtils.strTobytes(leftText))
@@ -171,7 +200,7 @@ class PrintUtils {
             listXP.add(StringUtils.strTobytes(centreText))
             listXP.add(DataForSendToPrinterPos80.setAbsolutePrintPosition(9, 0))
             listXP.add(StringUtils.strTobytes(rightText))
-            if(isAndLineFeed)listXP.add(DataForSendToPrinterPos80.printAndFeedLine())
+            if (isAndLineFeed) listXP.add(DataForSendToPrinterPos80.printAndFeedLine())
         }
         return this
     }
@@ -183,10 +212,10 @@ class PrintUtils {
     fun addCode(text: String, mOrientation: Orientation): PrintUtils {
         if (SOFT_TYPE == 1) { //一代机 gp
             setOrientation(mOrientation)
-            esc.addSetBarcodeHeight(80.toByte()) // 设置条码高度为80点
-            esc.addSetBarcodeWidth(2.toByte()) // 设置条码单元宽度为3
-            esc.addCODE128(esc.genCodeB(text)) // 打印Code128码
-            esc.addPrintAndLineFeed()
+            esc?.addSetBarcodeHeight(80.toByte()) // 设置条码高度为80点
+            esc?.addSetBarcodeWidth(2.toByte()) // 设置条码单元宽度为3
+            esc?.addCODE128(esc?.genCodeB(text)) // 打印Code128码
+            esc?.addPrintAndLineFeed()
         } else if (SOFT_TYPE == 3) { //二代机 xp
             setOrientation(mOrientation)
             //设置条形码宽度
@@ -208,11 +237,11 @@ class PrintUtils {
     fun addQRCode(text: String, mOrientation: Orientation): PrintUtils {
         if (SOFT_TYPE == 1) { //一代机 gp
             setOrientation(mOrientation)
-            esc.addSelectErrorCorrectionLevelForQRCode(0x31.toByte()) // 设置纠错等级
-            esc.addSelectSizeOfModuleForQRCode(8.toByte())// 设置qrcode模块大小
-            esc.addStoreQRCodeData(text)
-            esc.addPrintQRCode()
-            esc.addPrintAndLineFeed()
+            esc?.addSelectErrorCorrectionLevelForQRCode(0x31.toByte()) // 设置纠错等级
+            esc?.addSelectSizeOfModuleForQRCode(8.toByte())// 设置qrcode模块大小
+            esc?.addStoreQRCodeData(text)
+            esc?.addPrintQRCode()
+            esc?.addPrintAndLineFeed()
         } else if (SOFT_TYPE == 3) { //二代机 xp
             setOrientation(mOrientation)
             listXP.add(DataForSendToPrinterPos80.selectAlignment(1))
@@ -228,7 +257,7 @@ class PrintUtils {
      */
     fun printAndFeed(n: Int): PrintUtils {
         if (SOFT_TYPE == 1) { //一代机 gp
-            esc.addPrintAndFeedLines(1)
+            esc?.addPrintAndFeedLines(1)
         } else if (SOFT_TYPE == 3) { //二代机 xp
             listXP.add(DataForSendToPrinterPos80.printAndFeedLine())
         }
@@ -240,12 +269,12 @@ class PrintUtils {
      */
     fun openCashBox(): PrintUtils {
         if (SOFT_TYPE == 1) { //一代机 gp
-            esc.addInitializePrinter()
-            esc.addGeneratePlus(LabelCommand.FOOT.F2, 255.toByte(), 255.toByte())
+            esc?.addInitializePrinter()
+            esc?.addGeneratePlus(LabelCommand.FOOT.F2, 255.toByte(), 255.toByte())
 
             try {
-                esc.addPrintAndFeedLines(8.toByte())
-                mGpService?.sendEscCommand(0, Base64.encodeToString(GpUtils.ByteTo_byte(esc.command), Base64.DEFAULT))
+                esc?.addPrintAndFeedLines(8.toByte())
+                mGpService?.sendEscCommand(0, Base64.encodeToString(GpUtils.ByteTo_byte(esc?.command), Base64.DEFAULT))
             } catch (e: RemoteException) {
                 e.printStackTrace()
             }
@@ -281,39 +310,48 @@ class PrintUtils {
      ** 切纸并打印
      */
     fun addCutPaper(): PrintUtils {
-        if (SOFT_TYPE == 1) { //一代机 gp
-            try {
-                esc.addPrintAndFeedLines(4.toByte())
-                esc.addCutPaper()
-                mGpService?.sendEscCommand(0, Base64.encodeToString(GpUtils.ByteTo_byte(esc.command), Base64.DEFAULT))
-            } catch (e: RemoteException) {
-                e.printStackTrace()
+        if (!ISCONNECT) {
+            resetConnentFail()
+        } else
+            if (SOFT_TYPE == 1) { //一代机 gp
+                try {
+                    esc?.addPrintAndFeedLines(4.toByte())
+                    esc?.addCutPaper()
+                    val escCommand = mGpService?.sendEscCommand(0, Base64.encodeToString(GpUtils.ByteTo_byte(esc?.command), Base64.DEFAULT))
+                    val r = GpCom.ERROR_CODE.values()[escCommand!!]
+                    if (r != GpCom.ERROR_CODE.SUCCESS) {
+                        resetConnentFail()
+                    } else
+                        CustomProgress.disMiss()
+                } catch (e: RemoteException) {
+                    e.printStackTrace()
+
+
+                }
+            } else if (SOFT_TYPE == 3) { //二代机 xp
+                Log.i("listXP", "外面" + listXP.size)
+                listXP.add(DataForSendToPrinterPos80.selectCutPagerModerAndCutPager(66, 1))
+                binder?.writeDataByYouself(
+                        object : UiExecute {
+                            override fun onsucess() {
+                                listXP.clear()
+                                CustomProgress.disMiss()
+                                resetPrintTime()
+                                Log.i("listXP", "onsucess" + listXP.size)
+                            }
+
+                            override fun onfailed() {
+                                if (listXP.size > 0) listXP.removeAt(listXP.size - 1)
+                                resetConnentFail()
+                                Log.i("listXP", "onfailed" + listXP.size)
+                            }
+                        }, ProcessData {
+                    return@ProcessData listXP
+                })
+
             }
-        } else if (SOFT_TYPE == 3) { //二代机 xp
-
-            listXP.add(DataForSendToPrinterPos80.selectCutPagerModerAndCutPager(66, 1))
-            printAndFeed(3)
-            listXP.add(DataForSendToPrinterPos80.printAndFeedLine())
-            binder?.writeDataByYouself(
-                    object : UiExecute {
-                        override fun onsucess() {
-
-                        }
-
-                        override fun onfailed() {
-
-                            context?.toast("打印失败，请重启设备!")
-                        }
-                    }, ProcessData {
-                //切纸
-                return@ProcessData listXP
-                null
-            })
-
-        }
         return this
     }
-
 
 
     /**
@@ -323,13 +361,13 @@ class PrintUtils {
         if (SOFT_TYPE == 1) { //一代机 gp
             when (mOrientation) {
                 Orientation.LEFT -> { //左边
-                    esc.addSelectJustification(EscCommand.JUSTIFICATION.LEFT)
+                    esc?.addSelectJustification(EscCommand.JUSTIFICATION.LEFT)
                 }
                 Orientation.CENTRE -> { //中间
-                    esc.addSelectJustification(EscCommand.JUSTIFICATION.CENTER)
+                    esc?.addSelectJustification(EscCommand.JUSTIFICATION.CENTER)
                 }
                 Orientation.RIGHT -> { //左边
-                    esc.addSelectJustification(EscCommand.JUSTIFICATION.RIGHT)
+                    esc?.addSelectJustification(EscCommand.JUSTIFICATION.RIGHT)
                 }
             }
         } else if (SOFT_TYPE == 3) { //二代机 xp
@@ -356,13 +394,14 @@ class PrintUtils {
     /**
      ** 退出打印服务
      */
-    fun  exitPrint(){
+    fun exitPrint() {
+        ISCONNECT = false
         if (SOFT_TYPE == 1) { //一代机 GP
             if (conn != null) {
                 context?.unbindService(conn)
                 conn = null
             }
-        }else if(SOFT_TYPE == 3) { // 二代机XP
+        } else if (SOFT_TYPE == 3) { // 二代机XP
             binder?.disconnectCurrentPort(object : UiExecute {
                 override fun onsucess() {
 
@@ -376,16 +415,39 @@ class PrintUtils {
                 context?.unbindService(connXPrinter)
                 connXPrinter = null
             }
+
+            if (printerStatusBroadcastReceiver != null) {
+                context?.unregisterReceiver(printerStatusBroadcastReceiver)
+                mReceiverTag = false
+            }
         }
     }
 
     /**
      **  获取打印对象
      */
-    fun  getPrintObject(mIPrintObject:IPrintObject){
-        this. mIPrintObject=mIPrintObject
+    fun getPrintObject(mIPrintObject: IPrintObject) {
+        this.mIPrintObject = mIPrintObject
     }
-    var mIPrintObject:IPrintObject?= null
+
+    var mIPrintObject: IPrintObject? = null
+
+    /**
+     * 字体 大小
+     */
+    enum class Font {
+        BIG,
+        LITTLE
+    }
+
+    /**
+     * 打印方向
+     */
+    enum class Orientation {
+        LEFT,
+        CENTRE,
+        RIGHT
+    }
 
     companion object {
         var MACHINE_NUMBER = ""
@@ -394,7 +456,7 @@ class PrintUtils {
         //打印机是否连接
         var ISCONNECT = false
         //机器是否经过授权
-        var IS_ACTIVITE=false
+        var IS_ACTIVITE = false
 
 
         private var instancePrintUtils: PrintUtils? = null
@@ -403,24 +465,8 @@ class PrintUtils {
             return instancePrintUtils!!
         }
 
-        /**
-         * 字体 大小
-         */
-        enum class Font {
-            BIG,
-            LITTLE
-        }
 
-        /**
-         * 打印方向
-         */
-        enum class Orientation {
-            LEFT,
-            CENTRE,
-            RIGHT
-        }
     }
-
 
 
     private var connXPrinter: XPrinterServiceConnection? = null
@@ -431,10 +477,9 @@ class PrintUtils {
         override fun onServiceConnected(componentName: ComponentName, iBinder: IBinder) {
 
             binder = iBinder as IMyBinder
-            if(mIPrintObject!=null){
+            if (mIPrintObject != null) {
                 mIPrintObject?.getIMyBinder(binder!!)
             }
-
             val usbList = ArrayList<String>()
 
             try {
@@ -442,6 +487,10 @@ class PrintUtils {
             } catch (e: NullPointerException) {
                 e.printStackTrace()
                 usbList.clear()
+                if (System.currentTimeMillis() - connectFailTime > resetTime) {
+                    context?.toast("没有找到设备,请重试!")
+                }
+
             }
 
             if (!usbList.isEmpty()) {
@@ -451,25 +500,55 @@ class PrintUtils {
 
                     override fun onsucess() {
                         ISCONNECT = true
+
+                        if (listXP.size > 0) {
+                            addCutPaper()
+                        }
+
                     }
 
                     override fun onfailed() {
                         ISCONNECT = false
+                        resetConnentFail()
                     }
                 })
 
             } else {
-                context?.toast("打印机未连接，请退出重试")
+                resetConnentFail()
             }
 
         }
 
         override fun onServiceDisconnected(componentName: ComponentName) {
             binder = null
-            context?.toast("打印机断开连接")
+            resetConnentFail()
         }
     }
 
+
+    /**
+     *
+     * 重置连接失败时间
+     *
+     */
+    fun resetPrintTime() {
+        connectFailTime = 0
+    }
+
+
+    /**
+     *
+     * 连接失败 静默连接
+     *
+     */
+    fun resetConnentFail() {
+        if (System.currentTimeMillis() - connectFailTime < resetTime) {
+            if (context != null) initPrintConnect(context!!)
+        } else {
+            CustomProgress.disMiss()
+            context?.toast("打印机连接失败,请退出重试！")
+        }
+    }
 
 
     private var conn: PrinterServiceConnection? = null
@@ -478,26 +557,110 @@ class PrintUtils {
 
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
             mGpService = GpService.Stub.asInterface(service)
-            if(mIPrintObject!=null){
+            if (mIPrintObject != null) {
                 mIPrintObject?.getGpService(mGpService!!)
             }
             try {
                 mGpService!!.openPort(0, 2, if (getUsbDeviceList() == null) "" else getUsbDeviceList(), 0)
                 ISCONNECT = true
+
+                if(esc!=null&&!TextUtils.isEmpty(Base64.encodeToString(GpUtils.ByteTo_byte(esc?.command), Base64.DEFAULT))){
+                  addCutPaper()
+                }
             } catch (e: RemoteException) {
                 e.printStackTrace()
                 ISCONNECT = false
-
-                context?.toast("打印机连接异常，请退出重试!")
+                resetConnentFail()
             }
 
         }
 
         override fun onServiceDisconnected(name: ComponentName) {
+            ISCONNECT = false
             mGpService = null
-            context?.toast("打印机断开连接，请退出重试！")
+            resetConnentFail()
         }
 
+    }
+
+
+    private fun registerBroadcast(context: Context) {
+        context.registerReceiver(printerStatusBroadcastReceiver, IntentFilter(GpCom.ACTION_CONNECT_STATUS))
+        context.registerReceiver(printerStatusBroadcastReceiver, IntentFilter(GpCom.ACTION_DEVICE_REAL_STATUS))
+        context.registerReceiver(printerStatusBroadcastReceiver, IntentFilter(GpCom.ACTION_RECEIPT_RESPONSE))
+        mReceiverTag = true
+    }
+
+    val MAIN_QUERY_PRINTER_STATUS = 0xfe
+
+    private val printerStatusBroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+
+            val action = intent.action
+
+            if (action != null && action == GpCom.ACTION_CONNECT_STATUS) {
+                val type = intent.getIntExtra(GpPrintService.CONNECT_STATUS, 0)
+                val id = intent.getIntExtra(GpPrintService.PRINTER_ID, 0)
+                var str = ""
+                when (type) {
+
+                    GpDevice.STATE_CONNECTING -> {//连接
+                        str = "连接"
+                        ISCONNECT = true
+                    }
+                    GpDevice.STATE_NONE -> { //无
+                        str = "无"
+                        resetConnentFail()
+                        ISCONNECT = false
+                    }
+                    GpDevice.STATE_VALID_PRINTER -> {//打印机有效
+                        str = "打印机有效"
+                        ISCONNECT = true
+                    }
+
+                    GpDevice.STATE_INVALID_PRINTER -> { //打印机无效
+                        str = "打印机无效"
+                        ISCONNECT = false
+
+                    }
+                }
+                Log.i("registerReceiver", str)
+
+            } else if (action != null && action == GpCom.ACTION_DEVICE_REAL_STATUS) {
+
+                // 业务逻辑的请求码，对应哪里查询做什么操作
+                val requestCode = intent.getIntExtra(GpCom.EXTRA_PRINTER_REQUEST_CODE, -1)
+                // 判断请求码，是则进行业务操作
+                if (requestCode == MAIN_QUERY_PRINTER_STATUS) {
+
+                    val status = intent.getIntExtra(GpCom.EXTRA_PRINTER_REAL_STATUS, 16)
+                    var str: String
+                    if (status == GpCom.STATE_NO_ERR) {
+                        str = "打印机正常"
+                    } else {
+                        str = "打印机 "
+                        if ((status and GpCom.STATE_OFFLINE).toByte() > 0) {
+                            str += "脱机"
+                        }
+                        if ((status and GpCom.STATE_PAPER_ERR).toByte() > 0) {
+                            str += "缺纸"
+                        }
+                        if ((status and GpCom.STATE_COVER_OPEN).toByte() > 0) {
+                            str += "打印机开盖"
+                        }
+                        if ((status and GpCom.STATE_ERR_OCCURS).toByte() > 0) {
+                            str += "打印机出错"
+                        }
+                        if ((status and GpCom.STATE_TIMES_OUT).toByte() > 0) {
+                            str += "查询超时"
+                        }
+                    }
+                    Log.i("registerReceiver", str)
+                }
+            }
+
+
+        }
     }
 
 

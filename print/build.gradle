@@ -35,9 +35,12 @@ dependencies {
     implementation 'com.journeyapps:zxing-android-embedded:3.3.0'
     implementation files('libs/gprintersdkv22.jar')
     implementation files('libs/posprinterconnectandsendsdk.jar')
-
     //====================// Anko kotlin 插件 代码布局库========================
-    compile 'org.jetbrains.anko:anko-sdk15:0.10.4' // sdk19 sdk21 sdk23 are also available
-    compile 'org.jetbrains.anko:anko-support-v4:0.10.4' // In case you need support-v4 bindings
-    compile 'org.jetbrains.anko:anko-appcompat-v7:0.10.4' // For appcompat-v7 bindings
+    compile 'org.jetbrains.anko:anko-sdk15:0.10.4'
+    // sdk19 sdk21 sdk23 are also available
+    compile 'org.jetbrains.anko:anko-support-v4:0.10.4'
+    // In case you need support-v4 bindings
+    compile 'org.jetbrains.anko:anko-appcompat-v7:0.10.4'
+    // For appcompat-v7 bindings
+    implementation files('libs/xUtils-2.6.14.jar')
 }
