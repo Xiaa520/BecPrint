@@ -47,24 +47,8 @@ class TestActivity : AppCompatActivity() {
             PrintUtils.getInstance().exitPrint()
         }
 
-//        PrintUtils.getInstance().getPrintxceptionState(object : IPrintExceptionState {
-//            override fun getPrintExceptionState(state: PrintUtils.ExceptionState) {
-//                when (state) {
-//                    PrintUtils.ExceptionState.NO_CONNECTION -> {
-//                    }
-//                    PrintUtils.ExceptionState.NO_CONNECTION -> {
-//
-//                    }
-//                    PrintUtils.ExceptionState.NO_CONNECTION -> {
-//
-//                    }
-//                }
-//            }
-//        })
-
 
     }
-
 
 
     override fun onDestroy() {

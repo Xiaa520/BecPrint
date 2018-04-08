@@ -396,30 +396,33 @@ class PrintUtils {
      */
     fun exitPrint() {
         ISCONNECT = false
-        if (SOFT_TYPE == 1) { //一代机 GP
-            if (conn != null) {
-                context?.unbindService(conn)
-                conn = null
-            }
-        } else if (SOFT_TYPE == 3) { // 二代机XP
-            binder?.disconnectCurrentPort(object : UiExecute {
-                override fun onsucess() {
+        try {
+            if (SOFT_TYPE == 1) { //一代机 GP
+                if (conn != null) {
+                    context?.unbindService(conn)
+                    conn = null
+                }
+                if (printerStatusBroadcastReceiver != null) {
+                    context?.unregisterReceiver(printerStatusBroadcastReceiver)
+                    mReceiverTag = false
+                }
+            } else if (SOFT_TYPE == 3) { // 二代机XP
+                binder?.disconnectCurrentPort(object : UiExecute {
+                    override fun onsucess() {
 
+                    }
+
+                    override fun onfailed() {
+
+                    }
+                })
+                if (connXPrinter != null) {
+                    context?.unbindService(connXPrinter)
+                    connXPrinter = null
                 }
 
-                override fun onfailed() {
-
-                }
-            })
-            if (connXPrinter != null) {
-                context?.unbindService(connXPrinter)
-                connXPrinter = null
             }
-
-            if (printerStatusBroadcastReceiver != null) {
-                context?.unregisterReceiver(printerStatusBroadcastReceiver)
-                mReceiverTag = false
-            }
+        } catch (e: Exception) {
         }
     }
 
@@ -564,8 +567,8 @@ class PrintUtils {
                 mGpService!!.openPort(0, 2, if (getUsbDeviceList() == null) "" else getUsbDeviceList(), 0)
                 ISCONNECT = true
 
-                if(esc!=null&&!TextUtils.isEmpty(Base64.encodeToString(GpUtils.ByteTo_byte(esc?.command), Base64.DEFAULT))){
-                  addCutPaper()
+                if (esc != null && !TextUtils.isEmpty(Base64.encodeToString(GpUtils.ByteTo_byte(esc?.command), Base64.DEFAULT))) {
+                    addCutPaper()
                 }
             } catch (e: RemoteException) {
                 e.printStackTrace()
