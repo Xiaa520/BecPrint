@@ -9,7 +9,7 @@ GP和XP打印机
 Step 1. 然后在 build.gradle(Module:app) 的 dependencies 添加:
 
 	dependencies {
-	     compile 'com.github.XZWQuickness:BecPrint:1.0.2'
+	     compile 'com.github.XZWQuickness:BecPrint:1.0.3'
 	}
 
 
