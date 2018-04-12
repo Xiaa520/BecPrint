@@ -1,6 +1,7 @@
 package com.bec.printframework.print.utils
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.AlertDialog
 import android.app.ProgressDialog
 import android.content.*
@@ -13,6 +14,7 @@ import android.util.Log
 import android.widget.Toast
 import com.bec.printframework.print.utils.StringUtils.encodeAsBitmap
 import com.bec.printframework.print.utils.inter.IPrintObject
+
 import com.bec.printframework.print.utils.service.BecPosPrinterService
 import com.bec.printframework.print.utils.view.CustomProgress
 import com.gprinter.aidl.GpService
@@ -113,8 +115,8 @@ class PrintUtils {
     /**
      **  先初始化打印机，清除缓存
      */
-    fun initializePrinter(): PrintUtils {
-        CustomProgress.show(context!!, "打印中...", false, null)
+    fun initializePrinter(ativity:Activity): PrintUtils {
+        CustomProgress.show(ativity, "打印中...", false, null)
         connectFailTime = System.currentTimeMillis()
         if (SOFT_TYPE == 1) { //一代机 gp
             esc = EscCommand()

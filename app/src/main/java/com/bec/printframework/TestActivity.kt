@@ -10,9 +10,8 @@ class TestActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_test)
-        PrintUtils.getInstance().initPrintConnect(this)
         text.setOnClickListener {
-            PrintUtils.getInstance().initializePrinter()
+            PrintUtils.getInstance().initializePrinter(this)
                     .setFont(PrintUtils.Font.BIG)
                     .addText("南京亚青体育产业发展有限公司", PrintUtils.Orientation.CENTRE)
                     .setFont(PrintUtils.Font.LITTLE)
