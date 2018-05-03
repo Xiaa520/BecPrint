@@ -18,6 +18,7 @@ class TestActivity : AppCompatActivity() {
                     .addText("时间：2018-03-26 16:17:20", PrintUtils.Orientation.LEFT)
                     .addCode("2018032616172600175295", PrintUtils.Orientation.CENTRE)
                     .addText("收银员：朱国治", PrintUtils.Orientation.LEFT)
+                    .addText("商品名称", "数量", "金额", "单价",true)
                     .addText("商品名称", "数量", "金额", false)
                     .addText("", PrintUtils.Orientation.LEFT)
                     .addText("----------------------------------------------", PrintUtils.Orientation.LEFT)

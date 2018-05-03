@@ -208,6 +208,42 @@ class PrintUtils {
     }
 
     /**
+     **  打印机文字
+     *  text 打印内容
+     *
+     *  Orientation 打印方向
+     */
+    fun addText(text1: String, text2: String, text3: String,text4: String, isAndLineFeed: Boolean): PrintUtils {
+        if (SOFT_TYPE == 1) { //一代机 gp
+            setOrientation(Orientation.LEFT)
+            esc?.addText(text1)
+            esc?.addSetHorAndVerMotionUnits(7.toByte(), 0.toByte())
+            esc?.addSetAbsolutePrintPosition(8.toShort())
+
+            123456
+
+            esc?.addText(text2)
+            esc?.addSetAbsolutePrintPosition(14.toShort())
+            esc?.addText(text3)
+            esc?.addSetAbsolutePrintPosition(19.toShort())
+            esc?.addText(text4)
+            if (isAndLineFeed) esc?.addPrintAndLineFeed()
+        } else if (SOFT_TYPE == 3) { //二代机 xp
+            setOrientation(Orientation.LEFT)
+            listXP.add(StringUtils.strTobytes(text1))
+            listXP.add(DataForSendToPrinterPos80.setHorizontalAndVerticalMoveUnit(4, 4))
+            listXP.add(DataForSendToPrinterPos80.setAbsolutePrintPosition(4, 0))
+            listXP.add(StringUtils.strTobytes(text2))
+            listXP.add(DataForSendToPrinterPos80.setAbsolutePrintPosition(7, 0))
+            listXP.add(StringUtils.strTobytes(text3))
+            listXP.add(DataForSendToPrinterPos80.setAbsolutePrintPosition(10, 0))
+            listXP.add(StringUtils.strTobytes(text4))
+            if (isAndLineFeed) listXP.add(DataForSendToPrinterPos80.printAndFeedLine())
+        }
+        return this
+    }
+
+    /**
      **  打印机条形码
      *  text 打印内容
      */
